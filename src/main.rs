@@ -1,7 +1,7 @@
-mod repos;
+mod azdevops;
 mod utils;
 
-use crate::repos::get_repo_list;
+use azdevops::get_repo_list;
 
 #[tokio::main]
 async fn main() {
