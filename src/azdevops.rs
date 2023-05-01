@@ -3,7 +3,6 @@ use azure_devops_rust_api::git;
 use std::env;
 use std::error::Error;
 
-#[tokio::main]
 pub async fn get_repo_list() -> Result<Vec<git::models::GitRepository>, Box<dyn Error>> {
     // Initialize logging
     env_logger::init();
