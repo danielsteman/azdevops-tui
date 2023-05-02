@@ -4,9 +4,6 @@ use std::env;
 use std::error::Error;
 
 pub async fn get_repo_list() -> Result<Vec<git::models::GitRepository>, Box<dyn Error>> {
-    // Initialize logging
-    env_logger::init();
-
     // Get authentication credential
     let credential = get_credential();
 

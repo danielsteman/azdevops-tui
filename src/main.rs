@@ -2,8 +2,10 @@ mod azdevops;
 mod utils;
 
 use azdevops::get_repo_list;
+use tokio::runtime::Runtime;
 
-use std::{io, thread, time::{Duration, Instant}};
+use std::{io, time::{Duration, Instant}};
+use std::error::Error;
 use tui::{
     backend::{CrosstermBackend, Backend},
     widgets::{Block, Borders, List, ListState, ListItem},
@@ -107,6 +109,12 @@ fn run_app<B: Backend>(
     }
 }
 
+fn get_repo_list_sync() -> Result<Vec<azure_devops_rust_api::git::models::GitRepository>, Box<dyn Error>> {
+    let rt = Runtime::new().unwrap();
+    let result = rt.block_on(get_repo_list());
+    result
+}
+
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
    let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -127,8 +135,8 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
          .title("Block 2")
          .borders(Borders::ALL);
 
-    let repos: Vec<ListItem> = get_repo_list().await.iter().map(|i| {
-        ListItem::new(*i.name)
+    let repos: Vec<ListItem> = get_repo_list_sync().expect("Failed to fetch repos").iter().map(|i| {
+        ListItem::new(i.name.clone())
     }).collect();
 
 	let items: Vec<ListItem> = app.items.items.iter().map(|i| {
@@ -150,28 +158,35 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
 fn main() -> Result<(), io::Error> {
     // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-	let tick_rate = Duration::from_millis(500);
-	let app = App::new();
+   enable_raw_mode()?;
+   let mut stdout = io::stdout();
+   execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+   let backend = CrosstermBackend::new(stdout);
+   let mut terminal = Terminal::new(backend)?;
+   let tick_rate = Duration::from_millis(500);
+   let app = App::new();
 
-	let res = run_app(&mut terminal, app, tick_rate);
+   let res = run_app(&mut terminal, app, tick_rate);
 
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+   // restore terminal
+   disable_raw_mode()?;
+   execute!(
+       terminal.backend_mut(),
+       LeaveAlternateScreen,
+       DisableMouseCapture
+   )?;
+   terminal.show_cursor()?;
 
-	if let Err(err) = res {
-        println!("{:?}", err)
-    }
+   if let Err(err) = res {
+       println!("{:?}", err)
+   }
 
-    Ok(())
+   Ok(())
+
+   //println!("{:?}", get_repo_list_sync());
+   //let repos = get_repo_list_sync().expect("failure");
+   //for repo in repos {
+   //     println!("{}", repo.name)
+   //}
+   //Ok(())
 }
