@@ -1,7 +1,7 @@
-use std::{io, thread, time::Duration};
+use std::{io, thread, time::{Duration, Instant}};
 use tui::{
     backend::{CrosstermBackend, Backend},
-    widgets::{Widget, Block, Borders},
+    widgets::{Block, Borders, ListState},
     layout::{Layout, Constraint, Direction},
     Terminal, Frame
 };
@@ -11,7 +11,98 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-fn ui<B: Backend>(f: &mut Frame<B>) {
+struct StatefulList<T> {
+    state: ListState,
+    items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn unselect(&mut self) {
+        self.state.select(None);
+    }
+}
+
+struct App<'a> {
+    items: StatefulList<&'a str>,
+}
+
+impl<'a> App<'a> {
+	fn new() -> App<'a> {
+		App {
+			items: StatefulList::with_items(vec!["repo1", "repo2", "repo3"])
+		}
+	}
+	
+	fn on_tick(&mut self) {
+	}
+}
+
+fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    mut app: App,
+    tick_rate: Duration,
+) -> io::Result<()> {
+    let mut last_tick = Instant::now();
+    loop {
+        terminal.draw(|f| ui(f, &mut app))?;
+
+        let timeout = tick_rate
+            .checked_sub(last_tick.elapsed())
+            .unwrap_or_else(|| Duration::from_secs(0));
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('q') => return Ok(()),
+                    KeyCode::Left => app.items.unselect(),
+                    KeyCode::Down => app.items.next(),
+                    KeyCode::Up => app.items.previous(),
+                    _ => {}
+                }
+            }
+        }
+        if last_tick.elapsed() >= tick_rate {
+            app.on_tick();
+            last_tick = Instant::now();
+        }
+    }
+}
+
+fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
    let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -40,10 +131,10 @@ fn main() -> Result<(), io::Error> {
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+	let tick_rate = Duration::from_millis(500);
+	let app = App::new();
 
-	terminal.draw(ui)?;
-
-    thread::sleep(Duration::from_millis(5000));
+	let res = run_app(&mut terminal, app, tick_rate);
 
     // restore terminal
     disable_raw_mode()?;
@@ -53,6 +144,10 @@ fn main() -> Result<(), io::Error> {
         DisableMouseCapture
     )?;
     terminal.show_cursor()?;
+
+	if let Err(err) = res {
+        println!("{:?}", err)
+    }
 
     Ok(())
 }
