@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
-azure_devops_rust_api = { version = "0.7.5", features = ["git"] }
+azure_devops_rust_api = { version = "0.7.5", features = ["git", "graph"] }
 azure_identity = "0.11.0"
 crossterm = "0.26.1"
 dotenv = "0.15.0"

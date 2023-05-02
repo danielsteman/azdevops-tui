@@ -2,11 +2,7 @@ mod azdevops;
 mod utils;
 
 use azdevops::get_repo_list;
-use azure_devops_rust_api::git::models::GitRepository;
-use tokio::runtime::Runtime;
-
 use std::{io, time::{Duration, Instant}};
-use std::error::Error;
 use tui::{
     backend::{CrosstermBackend, Backend},
     widgets::{Block, Borders, List, ListState, ListItem},
