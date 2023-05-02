@@ -2,6 +2,7 @@ mod azdevops;
 mod utils;
 
 use azdevops::get_repo_list;
+use azure_devops_rust_api::git::models::GitRepository;
 use tokio::runtime::Runtime;
 
 use std::{io, time::{Duration, Instant}};
@@ -69,9 +70,9 @@ struct App<'a> {
 }
 
 impl<'a> App<'a> {
-	fn new() -> App<'a> {
+	async fn new(data: Vec<&'a str>) -> App<'a> {
 		App {
-			items: StatefulList::with_items(vec!["repo1", "repo2", "repo3"])
+			items: StatefulList::with_items(data)
 		}
 	}
 	
@@ -109,12 +110,6 @@ fn run_app<B: Backend>(
     }
 }
 
-fn get_repo_list_sync() -> Result<Vec<azure_devops_rust_api::git::models::GitRepository>, Box<dyn Error>> {
-    let rt = Runtime::new().unwrap();
-    let result = rt.block_on(get_repo_list());
-    result
-}
-
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
    let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -135,10 +130,6 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
          .title("Block 2")
          .borders(Borders::ALL);
 
-    let repos: Vec<ListItem> = get_repo_list_sync().expect("Failed to fetch repos").iter().map(|i| {
-        ListItem::new(i.name.clone())
-    }).collect();
-
 	let items: Vec<ListItem> = app.items.items.iter().map(|i| {
 		// ListItem::new(i).style(Style::default().fg(Color::Black).bg(Color::White))
 		ListItem::new(*i)
@@ -156,37 +147,34 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     f.render_stateful_widget(items, chunks[1], &mut app.items.state);
 }
 
-fn main() -> Result<(), io::Error> {
+#[tokio::main]
+async fn main() -> Result<(), io::Error> {
     // setup terminal
-   enable_raw_mode()?;
-   let mut stdout = io::stdout();
-   execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-   let backend = CrosstermBackend::new(stdout);
-   let mut terminal = Terminal::new(backend)?;
-   let tick_rate = Duration::from_millis(500);
-   let app = App::new();
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    let tick_rate = Duration::from_millis(500);
 
-   let res = run_app(&mut terminal, app, tick_rate);
+    let repo_list = get_repo_list().await.expect("Failed to fetch repos");
+    let repo_name_list = repo_list.iter().map(|repo| repo.name.as_str()).collect();
+    let app = App::new(repo_name_list).await;
 
-   // restore terminal
-   disable_raw_mode()?;
-   execute!(
+    let res = run_app(&mut terminal, app, tick_rate);
+
+    // restore terminal
+    disable_raw_mode()?;
+    execute!(
        terminal.backend_mut(),
        LeaveAlternateScreen,
        DisableMouseCapture
-   )?;
-   terminal.show_cursor()?;
+    )?;
+    terminal.show_cursor()?;
 
-   if let Err(err) = res {
+    if let Err(err) = res {
        println!("{:?}", err)
-   }
+    }
 
-   Ok(())
-
-   //println!("{:?}", get_repo_list_sync());
-   //let repos = get_repo_list_sync().expect("failure");
-   //for repo in repos {
-   //     println!("{}", repo.name)
-   //}
-   //Ok(())
+    Ok(())
 }
