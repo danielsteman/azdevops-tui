@@ -1,9 +1,14 @@
+mod azdevops;
+mod utils;
+
+use azdevops::get_repo_list;
+
 use std::{io, thread, time::{Duration, Instant}};
 use tui::{
     backend::{CrosstermBackend, Backend},
-    widgets::{Block, Borders, ListState},
+    widgets::{Block, Borders, List, ListState, ListItem},
     layout::{Layout, Constraint, Direction},
-    Terminal, Frame
+    Terminal, Frame, style::{Color, Style, Modifier}
 };
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -104,13 +109,12 @@ fn run_app<B: Backend>(
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
    let chunks = Layout::default()
-        .direction(Direction::Vertical)
+        .direction(Direction::Horizontal)
         .margin(1)
         .constraints(
             [
-                Constraint::Percentage(10),
-                Constraint::Percentage(80),
-                Constraint::Percentage(10)
+                Constraint::Percentage(50),
+                Constraint::Percentage(50),
             ].as_ref()
         )
         .split(f.size());
@@ -118,10 +122,30 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
          .title("Block")
          .borders(Borders::ALL);
     f.render_widget(block, chunks[0]);
+
     let block = Block::default()
          .title("Block 2")
          .borders(Borders::ALL);
-    f.render_widget(block, chunks[1]);
+
+    let repos: Vec<ListItem> = get_repo_list().await.iter().map(|i| {
+        ListItem::new(*i.name)
+    }).collect();
+
+	let items: Vec<ListItem> = app.items.items.iter().map(|i| {
+		// ListItem::new(i).style(Style::default().fg(Color::Black).bg(Color::White))
+		ListItem::new(*i)
+	}).collect();
+
+    let items = List::new(items)
+        .block(Block::default().borders(Borders::ALL).title("Repos"))
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol(">> ");
+
+    f.render_stateful_widget(items, chunks[1], &mut app.items.state);
 }
 
 fn main() -> Result<(), io::Error> {
