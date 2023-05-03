@@ -1,7 +1,7 @@
 mod azdevops;
 mod utils;
 
-use azdevops::get_repo_list;
+use azdevops::{get_repo_list, get_work_items};
 use std::{io, time::{Duration, Instant}};
 use tui::{
     backend::{CrosstermBackend, Backend},
@@ -154,23 +154,24 @@ async fn main() -> Result<(), io::Error> {
     let tick_rate = Duration::from_millis(500);
 
     let repo_list = get_repo_list().await.expect("Failed to fetch repos");
+	let work_items = get_work_items().await.expect("Failed to fetch workitems");
     let repo_name_list = repo_list.iter().map(|repo| repo.name.as_str()).collect();
     let app = App::new(repo_name_list).await;
 
-    let res = run_app(&mut terminal, app, tick_rate);
-
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(
-       terminal.backend_mut(),
-       LeaveAlternateScreen,
-       DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
-
-    if let Err(err) = res {
-       println!("{:?}", err)
-    }
+//    let res = run_app(&mut terminal, app, tick_rate);
+//
+//    // restore terminal
+//    disable_raw_mode()?;
+//    execute!(
+//       terminal.backend_mut(),
+//       LeaveAlternateScreen,
+//       DisableMouseCapture
+//    )?;
+//    terminal.show_cursor()?;
+//
+//    if let Err(err) = res {
+//       println!("{:?}", err)
+//    }
 
     Ok(())
 }

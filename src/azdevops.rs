@@ -32,7 +32,7 @@ pub enum WorkItemStatus {
     OnHold,
 }
 
-pub async fn get_work_items(status: WorkItemStatus) {
+pub async fn get_work_items() -> Result<(), Box<dyn Error>> {
     let credential = get_credential();
 
     // Get ADO server configuration via environment variables
@@ -42,12 +42,20 @@ pub async fn get_work_items(status: WorkItemStatus) {
     let graph_client = graph::ClientBuilder::new(credential).build();
     
 	let query = GraphSubjectQuery {
-        query: String::from("Select [System.Id], [System.Title], [System.State] From WorkItems Where [System.WorkItemType] = 'Task'").unwrap(), 
+        query: Some(String::from("graph_query: Select [System.Id], [System.Title], [System.State] From WorkItems Where [System.WorkItemType] = 'Task'")),
         scope_descriptor: None,
         subject_kind: vec!["User".to_string()],
     };
 
-    let query = GraphSubjectQuery {
-        
-    };
+	let subjects = graph_client
+        .subject_query_client()
+        .query(&organization, query)
+        .await?
+        .value;
+
+	println!("Found {} subjects", subjects.len());
+    if let Some(subject) = subjects.iter().next() {
+        println!("subject: {:#?}", subject);
+    }
+	Ok(())	
 }
